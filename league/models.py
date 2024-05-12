@@ -1,3 +1,6 @@
+# models.py
+
+import datetime
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -7,6 +10,10 @@ class User(AbstractUser):
     is_admin = models.BooleanField(default=False)
     is_coach = models.BooleanField(default=False)
     is_player = models.BooleanField(default=False)
+    login_count = models.IntegerField(default=0)
+    total_login_time = models.DurationField(default=datetime.timedelta())
+    last_login_end = models.DateTimeField(null=True, blank=True)
+    is_online = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'league_user'
@@ -45,11 +52,6 @@ class Player(models.Model):
         indexes = [
             models.Index(fields=['team', 'name'])
         ]
-
-    # def save(self, *args, **kwargs):
-    #     if self.team.players.count() >= 10:
-    #         raise ValidationError("A team cannot have more than 10 players.")
-    #     super(Player, self).save(*args, **kwargs)
 
     @property
     def average_score(self):
@@ -98,3 +100,28 @@ class Score(models.Model):
     class Meta:
         db_table = 'league_score'
 
+class Tournament(models.Model):
+    name = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    champion = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='championships_won')
+
+    class Meta:
+        db_table = 'league_tournament'
+
+
+class TournamentRound(models.Model):
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='rounds')
+    round_number = models.IntegerField()
+    teams = models.ManyToManyField(Team, through='RoundTeam')
+
+    class Meta:
+        db_table = 'league_tournament_round'
+
+class RoundTeam(models.Model):
+    round = models.ForeignKey(TournamentRound, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    eliminated = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'league_round_team'

@@ -1,7 +1,7 @@
 # serializers.py
 
 from rest_framework import serializers
-from .models import User, Team, Player, Game, Score
+from .models import User, Team, Player, Game, Score, Tournament, TournamentRound, RoundTeam
 # from djoser.serializers import UserSerializer as BaseUserSerializer
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,3 +41,61 @@ class ScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Score
         fields = ['id', 'player', 'game', 'score']
+
+class SimplePlayerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Player
+        fields = ['id', 'name']
+
+class SimpleTeamSerializer(serializers.ModelSerializer):
+    coach_name = serializers.CharField(source='coach.username')
+    players = SimplePlayerSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Team
+        fields = ['name', 'coach_name', 'players']
+
+class GameDetailsSerializer(serializers.ModelSerializer):
+    team_a = SimpleTeamSerializer(read_only=True)
+    team_b = SimpleTeamSerializer(read_only=True)
+    winner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Game
+        fields = ['date', 'location', 'team_a', 'team_b', 'team_a_score', 'team_b_score', 'winner']
+
+    def get_winner(self, obj):
+        if obj.team_a_score > obj.team_b_score:
+            return obj.team_a.name
+        elif obj.team_b_score > obj.team_a_score:
+            return obj.team_b.name
+        return "Draw"
+    
+
+class RoundTeamSerializer(serializers.ModelSerializer):
+    team = TeamSerializer(read_only=True)
+
+    class Meta:
+        model = RoundTeam
+        fields = ['team', 'eliminated']
+
+class TournamentRoundSerializer(serializers.ModelSerializer):
+    teams = RoundTeamSerializer(source='roundteam_set', many=True)
+
+    class Meta:
+        model = TournamentRound
+        fields = ['round_number', 'teams']
+
+class TournamentSerializer(serializers.ModelSerializer):
+    rounds = TournamentRoundSerializer(many=True)
+    champion = TeamSerializer(read_only=True)
+
+    class Meta:
+        model = Tournament
+        fields = ['id', 'name', 'start_date', 'end_date', 'champion', 'rounds']
+    
+class UserStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', ]
+
